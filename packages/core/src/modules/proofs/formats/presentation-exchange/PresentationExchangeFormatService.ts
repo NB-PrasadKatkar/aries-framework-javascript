@@ -397,6 +397,7 @@ export class PresentationExchangeFormatService extends ProofFormatService {
 
     const verifiablePresentation = w3cVerifiablePresentation as unknown as IPresentation
 
+    // validate contents of presentation
     const pex: PEXv1 = new PEXv1()
     pex.evaluatePresentation(requestMessage.presentationDefinition, verifiablePresentation)
 
