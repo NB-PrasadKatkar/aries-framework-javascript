@@ -1,3 +1,4 @@
+import type { Key } from '../../../../crypto/Key'
 import type { Query } from '../../../../storage/StorageService'
 import type { SignPresentationOptions, VerifyPresentationOptions } from '../../../vc/models/W3cCredentialServiceOptions'
 import type { W3cCredentialRecord } from '../../../vc/models/credential/W3cCredentialRecord'
@@ -41,7 +42,7 @@ import { AriesFrameworkError } from '../../../../error'
 import { DidCommMessageRepository } from '../../../../storage/didcomm/DidCommMessageRepository'
 import { JsonTransformer } from '../../../../utils'
 import { uuid } from '../../../../utils/uuid'
-import { DidResolverService } from '../../../dids'
+import { DidResolverService, keyReferenceToKey, keyTypeToProofType } from '../../../dids'
 import { W3cCredentialService } from '../../../vc'
 import { LinkedDataProof } from '../../../vc/models/LinkedDataProof'
 import { W3cVerifiablePresentation } from '../../../vc/models/presentation/W3cVerifiablePresentation'
@@ -251,7 +252,7 @@ export class PresentationExchangeFormatService extends ProofFormatService {
 
     const requestPresentation = options.attachment.getDataAsJson<RequestPresentationOptions>()
 
-    const credential = options.formats.presentationExchange
+    const credential: IVerifiableCredential = options.formats.presentationExchange
 
     const pex: PEXv1 = new PEXv1()
 
@@ -281,10 +282,13 @@ export class PresentationExchangeFormatService extends ProofFormatService {
       throw new AriesFrameworkError(`No did verification method found for did ${subject.id} in did document`)
     }
 
-    const proofPurpose = ProofPurpose.assertionMethod
+    const proofPurpose = ProofPurpose.authentication
 
-    if (!didResolutionResult.didDocument[proofPurpose]) {
-      throw new AriesFrameworkError('')
+    // if (!didResolutionResult.didDocument[proofPurpose]) {
+    //   throw new AriesFrameworkError('')
+    // }
+    if (this.w3cCredentialService.supportedProofTypes.includes(proofPurpose)) {
+      throw new AriesFrameworkError(`Unsupported Proof Purpose: ${proofPurpose}`)
     }
 
     // the signature suite to use for the presentation is dependant on the credentials we share.
@@ -332,18 +336,36 @@ export class PresentationExchangeFormatService extends ProofFormatService {
         },
       ],
     }
+    // assertionMethod?: Array<string | VerificationMethod>
+
+    // 2. Get the key for this given proof purpose in this DID document
+    const keyId = didResolutionResult.didDocument[proofPurpose] as string[]
+
+    // get keys from the did document section containing the proof purpose
+
+    // 3. Map the Key Id to a key. Key contains publicKey and keyType attributes
+    const privateKey: Key = keyReferenceToKey(didResolutionResult.didDocument, keyId[0])
+
+    // 4. Use the retrieved key to determine proof type
+    const proofType = keyTypeToProofType(privateKey)
+
+    if (!proofType) {
+      throw new AriesFrameworkError(`Unsupported key type: ${privateKey.keyType}`)
+    }
 
     const params: PresentationSignOptions = {
       holder: subject.id,
       proofOptions: {
-        type: ProofType.Ed25519Signature2018, // TO-CHECK - signature in the presentation or get it from DIDDoc
+        // type: ProofType.Ed25519Signature2018, // TO-CHECK - signature in the presentation or get it from DIDDoc
+        type: proofType,
         proofPurpose: ProofPurpose.assertionMethod,
         challenge: requestPresentation.options?.challenge,
       },
       signatureOptions: {
         verificationMethod: (didResolutionResult.didDocument?.authentication[0]).toString(),
         keyEncoding: KeyEncoding.Base58,
-        privateKey: didResolutionResult.didDocument.verificationMethod[0].publicKeyBase58,
+        // privateKey: didResolutionResult.didDocument.verificationMethod[0].publicKeyBase58,
+        privateKey: privateKey.publicKeyBase58,
       },
     }
 
@@ -409,7 +431,6 @@ export class PresentationExchangeFormatService extends ProofFormatService {
       verificationMethod: proof.verificationMethod,
       challenge: requestMessage.options?.challenge,
     }
-
     const verifyResult = await this.w3cCredentialService.verifyPresentation(verifyPresentationOptions)
 
     return verifyResult.verified
@@ -545,7 +566,6 @@ export class PresentationExchangeFormatService extends ProofFormatService {
     }
 
     const w3Presentation = presentation as unknown as W3cPresentation
-
     const signPresentationOptions: SignPresentationOptions = {
       presentation: w3Presentation,
       purpose: proof.proofPurpose,

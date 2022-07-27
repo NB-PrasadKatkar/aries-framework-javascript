@@ -5,3 +5,5 @@ export enum KeyType {
   Bls12381g2 = 'bls12381g2',
   X25519 = 'x25519',
 }
+
+

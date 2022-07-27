@@ -359,6 +359,10 @@ export class W3cCredentialService {
     return result?.credential
   }
 
+  public get supportedProofTypes(): string[] {
+    return this.suiteRegistry.supportedProofTypes
+  }
+
   private getSignatureSuitesForCredential(credential: W3cVerifiableCredential) {
     const WalletKeyPair = createWalletKeyPairClass(this.wallet)
 

@@ -50,7 +50,7 @@ describe('Present Proof', () => {
     await aliceAgent.wallet.delete()
   })
 
-  test('Alice starts with proof proposal to Faber', async () => {
+  xtest('Alice starts with proof proposal to Faber', async () => {
     // Alice sends a presentation proposal to Faber
     testLogger.test('Alice sends a presentation proposal to Faber')
 

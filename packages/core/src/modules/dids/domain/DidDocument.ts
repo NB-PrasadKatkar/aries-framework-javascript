@@ -10,6 +10,8 @@ import { IsStringOrStringArray } from '../../../utils/transformers'
 import { getKeyDidMappingByVerificationMethod } from './key-type'
 import { IndyAgentService, ServiceTransformer, DidCommV1Service } from './service'
 import { VerificationMethodTransformer, VerificationMethod, IsStringOrVerificationMethod } from './verificationMethod'
+import { ProofType } from '@sphereon/pex'
+import { AriesFrameworkError } from 'packages/core/src/error'
 
 type DidPurpose =
   | 'authentication'
@@ -216,6 +218,21 @@ export function keyReferenceToKey(didDocument: DidDocument, keyId: string) {
   return key
 }
 
+export function keyTypeToProofType(key: Key): ProofType | undefined {
+  if (key.keyType === KeyType.Ed25519) {
+    return ProofType.Ed25519Signature2018
+  } else if (key.keyType === KeyType.Bls12381g2) {
+    return ProofType.BbsBlsSignatureProof2020
+  }
+}
+
+export function proofTypeToKeyType(proofType: ProofType): KeyType | undefined {
+  if (proofType === ProofType.Ed25519Signature2018) {
+    return KeyType.Ed25519
+  } else if (proofType === ProofType.BbsBlsSignatureProof2020) {
+    return KeyType.Bls12381g2
+  }
+}
 /**
  * Extracting the verification method for signature type
  * @param type Signature type
